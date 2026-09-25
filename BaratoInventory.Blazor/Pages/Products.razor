@@ -1,9 +1,12 @@
 @page "/"
 @page "/products"
+@implements IDisposable
 @using BaratoInventory.Core.DTOs
 @using BaratoInventory.Blazor.Components
 @using BaratoInventory.Blazor.Services
 @inject IProductApiClient ApiClient
+@inject IAppModalService ModalService
+@inject IJSRuntime JSRuntime
 @inject ILogger<Products> Logger
 
 <PageTitle>Barato Product Inventory App</PageTitle>
@@ -125,6 +128,9 @@
 
     protected override async Task OnInitializedAsync()
     {
+        ModalService.OnOpenAddProductRequested += HandleBottomNavAddProduct;
+        ModalService.OnFocusSearchRequested += HandleBottomNavFocusSearch;
+
         await LoadCategoriesAsync();
         await LoadProductsAsync();
     }
@@ -504,5 +510,29 @@
     private void DismissToast()
     {
         _toastVisible = false;
+    }
+
+    private void HandleBottomNavAddProduct()
+    {
+        OpenAddModal();
+        StateHasChanged();
+    }
+
+    private async void HandleBottomNavFocusSearch()
+    {
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("eval", "var el = document.getElementById('catalog-search-input'); if (el) { el.scrollIntoView({behavior: 'smooth', block: 'center'}); el.focus(); }");
+        }
+        catch
+        {
+            // Fallback gracefully if JS eval is restricted
+        }
+    }
+
+    public void Dispose()
+    {
+        ModalService.OnOpenAddProductRequested -= HandleBottomNavAddProduct;
+        ModalService.OnFocusSearchRequested -= HandleBottomNavFocusSearch;
     }
 }

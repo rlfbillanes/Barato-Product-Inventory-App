@@ -2379,37 +2379,343 @@ td:has([data-tooltip]:hover),
     }
 }
 
+/* Presentation Views */
+.desktop-table-view {
+    display: block;
+}
+
+.mobile-products-view {
+    display: none;
+}
+
+.mobile-bottom-navbar {
+    display: none;
+}
+
 /* 4. Mobile Devices & Phablets (max-width: 768px) */
 @media (max-width: 768px) {
-    /* Navbar Responsive Sizing */
+    /* Bottom spacing so bottom navigation never obscures content or footer */
+    body,
+    .main-body {
+        padding-bottom: calc(75px + env(safe-area-inset-bottom, 0px)) !important;
+    }
+
+    /* Navbar on Mobile: Primary navigation is in the sleek Mobile Bottom App Bar */
     .top-navbar {
         padding: 0 14px;
         height: 52px;
     }
 
+    .top-navbar .nav-links {
+        display: none !important; /* Managed by mobile bottom navigation bar */
+    }
+
     .nav-brand {
         gap: 8px;
+        flex: 1;
+        overflow: hidden;
     }
 
     .nav-tag {
-        display: none !important; /* Hide .NET 8 Blazor WASM pill on small screens */
+        display: none !important;
     }
 
     .brand-title {
-        font-size: 14.5px;
-        max-width: 220px;
+        font-size: 15px;
+        max-width: 100%;
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
     }
 
-    .nav-links {
+    /* Fixed Mobile App Bottom Navigation Bar */
+    .mobile-bottom-navbar {
+        display: flex;
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        width: 100%;
+        height: 60px;
+        background: linear-gradient(180deg, #00224d 0%, #001736 100%);
+        border-top: 2px solid #009fe3;
+        box-shadow: 0 -4px 18px rgba(0, 20, 50, 0.45);
+        z-index: 1050;
+        align-items: center;
+        justify-content: space-around;
+        padding: 4px 6px max(6px, env(safe-area-inset-bottom, 6px));
+        box-sizing: border-box;
+        backdrop-filter: blur(10px);
+        -webkit-backdrop-filter: blur(10px);
+    }
+
+    .mobile-bottom-nav-item {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        text-decoration: none !important;
+        color: #94b8db;
+        background: none;
+        border: none;
+        padding: 4px 2px;
+        cursor: pointer;
+        transition: color 0.15s ease, transform 0.1s ease;
+        -webkit-tap-highlight-color: transparent;
+        user-select: none;
+    }
+
+    .mobile-bottom-nav-item:active {
+        transform: scale(0.93);
+    }
+
+    .mobile-nav-icon {
+        font-size: 20px;
+        line-height: 1.2;
+        margin-bottom: 2px;
+        transition: transform 0.15s ease, filter 0.15s ease;
+    }
+
+    .mobile-nav-label {
+        font-size: 10.5px;
+        font-weight: 700;
+        letter-spacing: 0.2px;
+        line-height: 1;
+    }
+
+    .mobile-bottom-nav-item.active {
+        color: #009fe3 !important;
+    }
+
+    .mobile-bottom-nav-item.active .mobile-nav-icon {
+        transform: translateY(-2px);
+        filter: drop-shadow(0 2px 5px rgba(0, 159, 227, 0.7));
+    }
+
+    /* Standout Center Action: Add Item */
+    .mobile-bottom-nav-action {
+        position: relative;
+    }
+
+    .mobile-nav-action-circle {
+        width: 38px;
+        height: 38px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #009fe3 0%, #004b93 100%);
+        border: 2px solid #ffffff;
+        box-shadow: 0 3px 10px rgba(0, 159, 227, 0.55);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-top: -14px;
+        margin-bottom: 2px;
+        transition: transform 0.15s ease, box-shadow 0.15s ease;
+    }
+
+    .mobile-bottom-nav-action:active .mobile-nav-action-circle {
+        transform: scale(0.92);
+        box-shadow: 0 1px 4px rgba(0, 159, 227, 0.4);
+    }
+
+    .action-plus-icon {
+        color: #ffffff;
+        font-size: 22px;
+        font-weight: 800;
+        line-height: 1;
+        margin-top: -2px;
+    }
+
+    /* Table & Scrollbar Improvement: Native Mobile Product Cards */
+    .desktop-table-view {
+        display: none !important;
+    }
+
+    .mobile-products-view {
+        display: flex !important;
+        flex-direction: column !important;
+        gap: 12px !important;
+        width: 100% !important;
+        box-sizing: border-box !important;
+    }
+
+    .mobile-product-card {
+        background-color: var(--bg-card, #ffffff);
+        border: 1px solid var(--border-color, #d6e2ee);
+        border-radius: var(--radius-lg, 10px);
+        box-shadow: 0 2px 6px rgba(0, 34, 77, 0.05);
+        padding: 12px 14px;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        transition: transform 0.15s ease, box-shadow 0.15s ease;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .mobile-product-card.card-out-of-stock {
+        background-color: #fffafb;
+        border-color: #fecaca;
+    }
+
+    .mobile-product-card:active {
+        box-shadow: 0 1px 3px rgba(0, 34, 77, 0.08);
+    }
+
+    .mobile-card-top-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 8px;
+        border-bottom: 1px dashed var(--border-subtle, #edf2f7);
+        padding-bottom: 8px;
+    }
+
+    .mobile-card-meta {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        flex-wrap: wrap;
+    }
+
+    .mobile-id-badge {
+        font-weight: 800;
+        font-size: 11px;
+        color: var(--text-muted, #52667d);
+        background-color: #f1f5f9;
+        padding: 2px 6px;
+        border-radius: 4px;
+        border: 1px solid #e2e8f0;
+    }
+
+    .mobile-price-badge {
+        font-size: 16px;
+        font-weight: 800;
+        color: var(--primary, #004b93);
+        letter-spacing: -0.2px;
+    }
+
+    .mobile-card-main-row {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+
+    .mobile-thumb-box {
+        flex-shrink: 0;
+        width: 56px;
+        height: 56px;
+        border-radius: 8px;
+        overflow: hidden;
+        border: 1.5px solid #d6e4f3;
+        background-color: #f8fafc;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .mobile-thumb-img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        display: block;
+    }
+
+    .mobile-thumb-placeholder {
+        font-size: 24px;
+        line-height: 1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .mobile-info-box {
+        flex: 1;
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+    }
+
+    .mobile-product-title {
+        font-size: 14.5px;
+        font-weight: 700;
+        color: var(--text-main, #0c1a30);
+        margin: 0;
+        line-height: 1.35;
+        word-break: break-word;
+    }
+
+    .mobile-stock-status {
+        display: flex;
+        align-items: center;
         gap: 6px;
     }
 
-    .nav-link {
-        padding: 5px 8px;
-        font-size: 12.5px;
+    .mobile-card-action-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 8px;
+        padding-top: 8px;
+        border-top: 1px solid var(--border-subtle, #edf2f7);
+    }
+
+    .mobile-stock-stepper {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+    }
+
+    .stepper-label {
+        font-size: 11.5px;
+        font-weight: 600;
+        color: var(--text-muted, #52667d);
+    }
+
+    .stepper-count {
+        font-size: 13.5px;
+        font-weight: 800;
+        color: var(--text-main, #0c1a30);
+        min-width: 26px;
+        text-align: center;
+    }
+
+    .mobile-stock-stepper .btn-stock-step {
+        width: 32px !important;
+        height: 32px !important;
+        font-size: 15px !important;
+        font-weight: 800 !important;
+        border-radius: 6px !important;
+        background-color: #f1f5f9;
+        border: 1px solid #cbd5e1;
+    }
+
+    .mobile-stock-stepper .btn-stock-step:hover:not(:disabled),
+    .mobile-stock-stepper .btn-stock-step:active:not(:disabled) {
+        background-color: #e2e8f0;
+    }
+
+    .mobile-actions-group {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+
+    .mobile-action-btn {
+        padding: 6px 12px !important;
+        font-size: 12px !important;
+        font-weight: 700 !important;
+        min-height: 32px !important;
+        border-radius: 6px !important;
+    }
+
+    .mobile-empty-state {
+        background: #ffffff;
+        border: 1px solid var(--border-color);
+        border-radius: var(--radius-lg);
+        padding: 36px 16px;
+        text-align: center;
     }
 
     /* Main Container & Header */
@@ -2758,30 +3064,23 @@ td:has([data-tooltip]:hover),
 /* 5. Small Mobile Portrait (max-width: 480px) */
 @media (max-width: 480px) {
     .top-navbar {
-        padding: 0 8px;
+        padding: 0 10px;
     }
 
     .nav-brand {
-        gap: 6px;
+        gap: 8px;
     }
 
     .brand-title {
-        font-size: 13px;
-        max-width: 140px;
+        font-size: 14px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
     }
 
     .brand-logo-container {
-        padding: 2px 5px;
-        height: 26px;
-    }
-
-    .nav-links {
-        gap: 4px;
-    }
-
-    .nav-link {
-        padding: 4px 6px;
-        font-size: 11.5px;
+        padding: 2px 6px;
+        height: 28px;
     }
 
     /* Single-column full-width filter layout on small screens */

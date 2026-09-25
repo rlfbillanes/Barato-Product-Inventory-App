@@ -25,4 +25,51 @@
             <span>Connected to Web API &bull; Redis Cache &bull; SQL Server</span>
         </div>
     </footer>
+
+    <!-- Native Mobile App Bottom Navigation Bar -->
+    <nav class="mobile-bottom-navbar" aria-label="Mobile Navigation">
+        <NavLink href="" Match="NavLinkMatch.All" class="mobile-bottom-nav-item">
+            <span class="mobile-nav-icon">📦</span>
+            <span class="mobile-nav-label">Catalog</span>
+        </NavLink>
+        <button type="button" class="mobile-bottom-nav-item mobile-bottom-nav-action" @onclick="HandleAddProductClick" aria-label="Add New Product">
+            <div class="mobile-nav-action-circle">
+                <span class="action-plus-icon">+</span>
+            </div>
+            <span class="mobile-nav-label">Add Item</span>
+        </button>
+        <button type="button" class="mobile-bottom-nav-item" @onclick="HandleSearchClick" aria-label="Search Catalog">
+            <span class="mobile-nav-icon">🔍</span>
+            <span class="mobile-nav-label">Search</span>
+        </button>
+        <NavLink href="settings" class="mobile-bottom-nav-item">
+            <span class="mobile-nav-icon">⚙️</span>
+            <span class="mobile-nav-label">Settings</span>
+        </NavLink>
+    </nav>
 </div>
+
+@code {
+    [Inject] private BaratoInventory.Blazor.Services.IAppModalService ModalService { get; set; } = default!;
+    [Inject] private NavigationManager Navigation { get; set; } = default!;
+
+    private void HandleAddProductClick()
+    {
+        var currentUri = Navigation.ToBaseRelativePath(Navigation.Uri);
+        if (!string.IsNullOrEmpty(currentUri) && !currentUri.StartsWith("products", StringComparison.OrdinalIgnoreCase))
+        {
+            Navigation.NavigateTo("");
+        }
+        ModalService.RequestOpenAddProduct();
+    }
+
+    private void HandleSearchClick()
+    {
+        var currentUri = Navigation.ToBaseRelativePath(Navigation.Uri);
+        if (!string.IsNullOrEmpty(currentUri) && !currentUri.StartsWith("products", StringComparison.OrdinalIgnoreCase))
+        {
+            Navigation.NavigateTo("");
+        }
+        ModalService.RequestFocusSearch();
+    }
+}

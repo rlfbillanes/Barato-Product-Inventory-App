@@ -12,5 +12,6 @@ var apiBaseUrl = builder.Configuration["ApiBaseUrl"] ?? "http://localhost:5000/"
 
 builder.Services.AddScoped(sp => new HttpClient { BaseAddress = new Uri(apiBaseUrl) });
 builder.Services.AddScoped<IProductApiClient, ProductApiClient>();
+builder.Services.AddScoped<IAppModalService, AppModalService>();
 
 await builder.Build().RunAsync();
