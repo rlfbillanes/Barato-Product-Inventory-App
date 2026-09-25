@@ -1,0 +1,562 @@
+@namespace BaratoInventory.Blazor.Components
+@using BaratoInventory.Core.DTOs
+
+@if (IsOpen && Model != null)
+{
+    <div class="modal-backdrop-custom" @onclick="HandleBackdropClick">
+        <div class="modal-dialog-custom @(_isPulseAnimating ? "modal-static-pulse" : "")" @onclick:stopPropagation="true">
+            <div class="modal-header-custom">
+                <h3 class="modal-title-custom">
+                    @(Model.IsEditMode ? $"Edit Product: {Model.Name}" : "Add New Inventory Product")
+                </h3>
+                <button type="button" class="modal-close-btn" @onclick="HandleCancel" data-tooltip="Close without saving" data-tooltip-pos="left">&times;</button>
+            </div>
+
+            <EditForm Model="@Model" OnValidSubmit="HandleSubmit" autocomplete="off">
+                <DataAnnotationsValidator />
+
+                <div class="modal-body-custom">
+                    @if (!string.IsNullOrWhiteSpace(ErrorMessage))
+                    {
+                        <div class="alert alert-danger" role="alert" style="border-left: 4px solid #dc3545;">
+                            <div style="display: flex; align-items: flex-start; gap: 8px;">
+                                <span style="font-size: 1.1rem; line-height: 1.2;">⚠️</span>
+                                <div style="flex: 1;">
+                                    <strong>Notice:</strong> @ErrorMessage
+                                </div>
+                            </div>
+                            @if (IsConcurrencyConflict)
+                            {
+                                <div class="concurrency-actions" style="margin-top: 10px; display: flex; gap: 8px; flex-wrap: wrap;">
+                                    <button type="button" class="btn btn-sm btn-outline-primary" @onclick="HandleReloadLatest" disabled="@IsSubmitting" style="font-weight: 500;">
+                                        🔄 Reload Latest Version
+                                    </button>
+                                    <button type="button" class="btn btn-sm btn-warning" @onclick="HandleForceOverwrite" disabled="@IsSubmitting" style="font-weight: 500;">
+                                        ⚡ Overwrite with My Values
+                                    </button>
+                                </div>
+                            }
+                        </div>
+                    }
+
+                    <!-- Product Name -->
+                    <div class="form-group-custom">
+                        <label class="form-label-custom" for="prodName">
+                            Product Name <span class="required-star">*</span>
+                            <span class="hover-note-icon" data-tooltip="Enter the official product title (2 to 150 characters)." data-tooltip-pos="top">ⓘ</span>
+                        </label>
+                        <InputText id="prodName" 
+                                   class="form-control-custom" 
+                                   placeholder="e.g. Gardenia Classic White Bread" 
+                                   autofocus
+                                   autocomplete="off"
+                                   @bind-Value="Model.Name" />
+                        <ValidationMessage For="() => Model.Name" class="form-validation-error" />
+                    </div>
+
+                    <!-- Category Combobox -->
+                    <div class="form-group-custom">
+                        <label class="form-label-custom" for="prodCategory">
+                            Category <span class="required-star">*</span>
+                            <span class="hover-note-icon" data-tooltip="💡 You can choose an existing category or type ANY brand-new category (e.g. Frozen Goods, Electronics) to register it automatically!" data-tooltip-pos="top">ⓘ</span>
+                        </label>
+                        <div class="category-combobox-wrapper" @onfocusout="HandleCategoryFocusOut">
+                            <div class="category-input-group">
+                                <input id="prodCategory" 
+                                       type="text"
+                                       class="form-control-custom category-input" 
+                                       placeholder="Select or enter category (e.g. Bakery, Beverages)" 
+                                       value="@Model.Category" 
+                                       @oninput="HandleCategoryInput"
+                                       @onfocus="() => { _isCategoryDropdownOpen = true; _highlightedCategoryIndex = -1; }"
+                                       @onkeydown="HandleCategoryKeyDown"
+                                       autocomplete="off"
+                                       spellcheck="false" />
+                                <button type="button" 
+                                        class="category-dropdown-toggle-btn" 
+                                        @onclick="ToggleCategoryDropdown" 
+                                        @onclick:preventDefault="true"
+                                        tabindex="-1"
+                                        title="Toggle categories list">
+                                    <span class="chevron-icon @(_isCategoryDropdownOpen ? "open" : "")">▼</span>
+                                </button>
+                            </div>
+
+                            @if (_isCategoryDropdownOpen)
+                            {
+                                <div class="category-dropdown-panel" @onmousedown:preventDefault="true">
+                                    <div class="category-dropdown-header">
+                                        <span>Categories</span>
+                                        <span class="category-count">@FilteredCategories.Count()</span>
+                                    </div>
+                                    <ul class="category-dropdown-list">
+                                        @{
+                                            var currentList = FilteredCategories.ToList();
+                                            for (int i = 0; i < currentList.Count; i++)
+                                            {
+                                                var cat = currentList[i];
+                                                var isHighlighted = i == _highlightedCategoryIndex;
+                                                var isSelected = string.Equals(Model.Category, cat, StringComparison.OrdinalIgnoreCase);
+                                                <li class="category-dropdown-item @(isSelected ? "selected" : "") @(isHighlighted ? "focused" : "")"
+                                                    @onclick="() => SelectCategory(cat)">
+                                                    <span class="category-item-icon">🏷️</span>
+                                                    <span class="category-item-name">@cat</span>
+                                                    @if (isSelected)
+                                                    {
+                                                        <span class="category-check">✓</span>
+                                                    }
+                                                </li>
+                                            }
+                                        }
+
+                                        @if (IsNewCategoryTyped)
+                                        {
+                                            <li class="category-dropdown-item category-item-new"
+                                                @onclick="() => SelectCategory(Model.Category.Trim())">
+                                                <span class="category-item-icon">✨</span>
+                                                <span class="category-item-name">Use new category: "<strong>@Model.Category.Trim()</strong>"</span>
+                                                <span class="badge badge-success" style="font-size: 10px;">New</span>
+                                            </li>
+                                        }
+
+                                        @if (!FilteredCategories.Any() && !IsNewCategoryTyped)
+                                        {
+                                            <li class="category-dropdown-empty">
+                                                No categories found. Type any name to create it.
+                                            </li>
+                                        }
+                                    </ul>
+                                </div>
+                            }
+                        </div>
+                        <ValidationMessage For="() => Model.Category" class="form-validation-error" />
+                        <span class="label-hint" style="display: block; margin-top: 4px; font-size: 11.5px; color: var(--text-muted);">
+                            💡 Click <strong>▼</strong> to pick from available categories, or type any new category name to create it.
+                        </span>
+                    </div>
+
+                    <!-- Grid: Price and Quantity -->
+                    <div class="form-row-custom">
+                        <div class="form-group-custom form-col-half">
+                            <label class="form-label-custom" for="prodPrice">
+                                Unit Price (₱) <span class="required-star">*</span>
+                                <span class="hover-note-icon" data-tooltip="Retail price per unit in Philippine Peso (₱). Minimum ₱0.01." data-tooltip-pos="top">ⓘ</span>
+                            </label>
+                            <InputNumber id="prodPrice" 
+                                         class="form-control-custom" 
+                                         step="0.01" 
+                                         placeholder="0.00" 
+                                         autocomplete="off"
+                                         @bind-Value="Model.Price" />
+                            <ValidationMessage For="() => Model.Price" class="form-validation-error" />
+                        </div>
+
+                        <div class="form-group-custom form-col-half">
+                            <label class="form-label-custom" for="prodQuantity">
+                                @(Model.IsEditMode ? "Quantity in Stock" : "Initial Quantity") <span class="required-star">*</span>
+                                <span class="hover-note-icon" data-tooltip="Total inventory on hand. When adding a product, initial quantity must be at least 1 unit." data-tooltip-pos="top">ⓘ</span>
+                            </label>
+                            <InputNumber id="prodQuantity" 
+                                         class="form-control-custom" 
+                                         step="1" 
+                                         min="@(Model.IsEditMode ? "0" : "1")"
+                                         placeholder="@(Model.IsEditMode ? "0" : "1")" 
+                                         autocomplete="off"
+                                         @bind-Value="Model.Quantity" />
+                            <ValidationMessage For="() => Model.Quantity" class="form-validation-error" />
+                            @if (!Model.IsEditMode && Model.Quantity <= 0)
+                            {
+                                <div class="form-validation-error">Initial quantity must be greater than zero.</div>
+                            }
+                        </div>
+                    </div>
+
+                    <!-- Product Image Selection: Local Upload or URL -->
+                    <div class="form-group-custom">
+                        <div class="image-upload-header">
+                            <label class="form-label-custom mb-0">
+                                Product Image <span class="label-hint">(Local File or Web URL)</span>
+                                <span class="hover-note-icon" data-tooltip="Upload a local image (JPG, PNG, WEBP up to 2MB) or provide a direct web image link." data-tooltip-pos="top">ⓘ</span>
+                            </label>
+                            <div class="image-mode-toggle">
+                                <button type="button" class="btn-toggle-mode @(_useUrlMode ? "" : "active")" 
+                                        @onclick="() => _useUrlMode = false"
+                                        data-tooltip="Upload photo from your device" data-tooltip-pos="top">
+                                    📁 Upload File
+                                </button>
+                                <button type="button" class="btn-toggle-mode @(_useUrlMode ? "active" : "")" 
+                                        @onclick="() => _useUrlMode = true"
+                                        data-tooltip="Paste an online image URL (HTTP/HTTPS)" data-tooltip-pos="top">
+                                    🔗 Web Link
+                                </button>
+                            </div>
+                        </div>
+
+                        @if (!_useUrlMode)
+                        {
+                            <div class="file-upload-box @(_isUploading ? "uploading" : "")">
+                                <InputFile id="prodFileInput" 
+                                           OnChange="HandleFileSelected" 
+                                           accept=".jpg,.jpeg,.png,.webp" 
+                                           class="file-input-hidden" 
+                                           disabled="@(_isUploading || IsSubmitting)" />
+                                <label for="prodFileInput" class="file-upload-label">
+                                    @if (_isUploading)
+                                    {
+                                        <span class="btn-spinner"></span>
+                                        <span>Uploading image...</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="upload-icon">📷</span>
+                                        <span class="upload-text"><strong>Click to browse</strong> or drag & drop</span>
+                                        <span class="upload-meta">JPG, PNG, or WEBP (Max: 2 MB)</span>
+                                    }
+                                </label>
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="image-input-preview-group">
+                                <InputText id="prodImage" 
+                                           class="form-control-custom" 
+                                           placeholder="https://example.com/product-photo.jpg" 
+                                           @bind-Value="Model.ImageUrl" />
+                            </div>
+                        }
+
+                        @if (!string.IsNullOrWhiteSpace(_uploadError))
+                        {
+                            <div class="upload-alert upload-alert-error">
+                                ⚠️ @_uploadError
+                            </div>
+                        }
+
+                        @if (!string.IsNullOrWhiteSpace(_uploadSuccessMessage))
+                        {
+                            <div class="upload-alert upload-alert-success">
+                                ✓ @_uploadSuccessMessage
+                            </div>
+                        }
+
+                        @if (!string.IsNullOrWhiteSpace(Model.ImageUrl))
+                        {
+                            <div class="selected-image-preview-card">
+                                <img src="@ApiClient.ResolveImageUrl(Model.ImageUrl)" alt="Product Preview" class="preview-thumbnail" />
+                                <div class="preview-meta">
+                                    <span class="preview-path" title="@Model.ImageUrl">@Model.ImageUrl</span>
+                                    <button type="button" class="btn-clear-image" @onclick="ClearImage" data-tooltip="Remove this photo from product" data-tooltip-pos="top">
+                                        ✕ Remove Image
+                                    </button>
+                                </div>
+                            </div>
+                        }
+
+                        <ValidationMessage For="() => Model.ImageUrl" class="form-validation-error" />
+                    </div>
+                </div>
+
+                <div class="modal-footer-custom">
+                    <button type="button" class="btn btn-secondary" disabled="@IsSubmitting" @onclick="HandleCancel" data-tooltip="Discard changes and exit" data-tooltip-pos="top">
+                        Cancel
+                    </button>
+                    <button type="submit" class="btn btn-primary" 
+                            disabled="@(IsSubmitting || _isUploading || (!Model.IsEditMode && Model.Quantity <= 0))"
+                            data-tooltip="@(Model.IsEditMode ? "Save updates to database and refresh cache" : "Add this product to inventory catalog")" data-tooltip-pos="top">
+                        @if (IsSubmitting)
+                        {
+                            <span class="btn-spinner"></span>
+                            <span>Saving...</span>
+                        }
+                        else
+                        {
+                            <span>@(Model.IsEditMode ? "Save Changes" : "Create Product")</span>
+                        }
+                    </button>
+                </div>
+            </EditForm>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter]
+    public bool IsOpen { get; set; }
+
+    [Parameter]
+    public ProductFormModel? Model { get; set; }
+
+    [Parameter]
+    public IEnumerable<string>? AvailableCategories { get; set; }
+
+    [Parameter]
+    public bool IsSubmitting { get; set; }
+
+    [Parameter]
+    public string? ErrorMessage { get; set; }
+
+    [Parameter]
+    public bool IsConcurrencyConflict { get; set; }
+
+    [Parameter]
+    public EventCallback OnReloadLatest { get; set; }
+
+    [Parameter]
+    public EventCallback OnForceOverwrite { get; set; }
+
+    [Parameter]
+    public EventCallback OnCancel { get; set; }
+
+    [Parameter]
+    public EventCallback<ProductFormModel> OnSave { get; set; }
+
+    [Inject]
+    public IProductApiClient ApiClient { get; set; } = default!;
+
+    private async Task HandleReloadLatest()
+    {
+        if (OnReloadLatest.HasDelegate)
+        {
+            await OnReloadLatest.InvokeAsync();
+        }
+    }
+
+    private async Task HandleForceOverwrite()
+    {
+        if (OnForceOverwrite.HasDelegate)
+        {
+            await OnForceOverwrite.InvokeAsync();
+        }
+    }
+
+    private bool _useUrlMode = false;
+    private bool _isUploading = false;
+    private string? _uploadError;
+    private string? _uploadSuccessMessage;
+    private int _lastLoadedModelId = -1;
+
+    private bool _isCategoryDropdownOpen = false;
+    private int _highlightedCategoryIndex = -1;
+
+    private IEnumerable<string> FilteredCategories
+    {
+        get
+        {
+            if (AvailableCategories == null) return Enumerable.Empty<string>();
+            if (string.IsNullOrWhiteSpace(Model?.Category))
+                return AvailableCategories.OrderBy(c => c);
+
+            return AvailableCategories
+                .Where(c => c.Contains(Model.Category, StringComparison.OrdinalIgnoreCase))
+                .OrderBy(c => c);
+        }
+    }
+
+    private bool IsNewCategoryTyped
+    {
+        get
+        {
+            if (string.IsNullOrWhiteSpace(Model?.Category)) return false;
+            var trimmed = Model.Category.Trim();
+            if (trimmed.Length < 2) return false;
+            if (AvailableCategories == null) return true;
+            return !AvailableCategories.Any(c => string.Equals(c, trimmed, StringComparison.OrdinalIgnoreCase));
+        }
+    }
+
+    private void HandleCategoryInput(ChangeEventArgs e)
+    {
+        if (Model != null)
+        {
+            Model.Category = e.Value?.ToString() ?? string.Empty;
+            _isCategoryDropdownOpen = true;
+            _highlightedCategoryIndex = -1;
+        }
+    }
+
+    private void SelectCategory(string category)
+    {
+        if (Model != null)
+        {
+            Model.Category = category;
+            _isCategoryDropdownOpen = false;
+            _highlightedCategoryIndex = -1;
+        }
+    }
+
+    private void ToggleCategoryDropdown()
+    {
+        _isCategoryDropdownOpen = !_isCategoryDropdownOpen;
+        _highlightedCategoryIndex = -1;
+    }
+
+    private async Task HandleCategoryFocusOut()
+    {
+        await Task.Delay(180);
+        _isCategoryDropdownOpen = false;
+        _highlightedCategoryIndex = -1;
+    }
+
+    private void HandleCategoryKeyDown(KeyboardEventArgs e)
+    {
+        var list = FilteredCategories.ToList();
+        if (e.Key == "ArrowDown")
+        {
+            _isCategoryDropdownOpen = true;
+            if (list.Count > 0)
+            {
+                _highlightedCategoryIndex = (_highlightedCategoryIndex + 1) % list.Count;
+            }
+        }
+        else if (e.Key == "ArrowUp")
+        {
+            _isCategoryDropdownOpen = true;
+            if (list.Count > 0)
+            {
+                _highlightedCategoryIndex = (_highlightedCategoryIndex - 1 + list.Count) % list.Count;
+            }
+        }
+        else if (e.Key == "Enter")
+        {
+            if (_isCategoryDropdownOpen && _highlightedCategoryIndex >= 0 && _highlightedCategoryIndex < list.Count)
+            {
+                SelectCategory(list[_highlightedCategoryIndex]);
+            }
+            else
+            {
+                _isCategoryDropdownOpen = false;
+            }
+        }
+        else if (e.Key == "Escape")
+        {
+            _isCategoryDropdownOpen = false;
+            _highlightedCategoryIndex = -1;
+        }
+    }
+
+    protected override void OnParametersSet()
+    {
+        if (Model != null && Model.Id != _lastLoadedModelId)
+        {
+            _lastLoadedModelId = Model.Id;
+            _uploadError = null;
+            _uploadSuccessMessage = null;
+            _isCategoryDropdownOpen = false;
+            _highlightedCategoryIndex = -1;
+
+            if (!string.IsNullOrWhiteSpace(Model.ImageUrl) &&
+                (Model.ImageUrl.StartsWith("http://", StringComparison.OrdinalIgnoreCase) ||
+                 Model.ImageUrl.StartsWith("https://", StringComparison.OrdinalIgnoreCase)))
+            {
+                _useUrlMode = true;
+            }
+            else
+            {
+                _useUrlMode = false;
+            }
+        }
+        else if (Model == null)
+        {
+            _lastLoadedModelId = -1;
+            _isCategoryDropdownOpen = false;
+            _highlightedCategoryIndex = -1;
+        }
+    }
+
+    private async Task HandleFileSelected(InputFileChangeEventArgs e)
+    {
+        _uploadError = null;
+        _uploadSuccessMessage = null;
+
+        if (e.File == null || Model == null) return;
+
+        // Strict 2 MB client-side check
+        const long maxFileSize = 2 * 1024 * 1024; // 2 MB
+        if (e.File.Size > maxFileSize)
+        {
+            var sizeMb = (e.File.Size / (1024.0 * 1024.0)).ToString("0.1");
+            _uploadError = $"File is too large ({sizeMb} MB). Maximum allowed size is 2.0 MB.";
+            return;
+        }
+
+        var ext = Path.GetExtension(e.File.Name).ToLowerInvariant();
+        var allowed = new[] { ".jpg", ".jpeg", ".png", ".webp" };
+        if (!allowed.Contains(ext))
+        {
+            _uploadError = "Invalid file type. Only JPG, PNG, and WEBP formats are accepted.";
+            return;
+        }
+
+        try
+        {
+            _isUploading = true;
+            StateHasChanged();
+
+            var result = await ApiClient.UploadImageAsync(e.File);
+            if (result != null)
+            {
+                Model.ImageUrl = result.RelativeUrl;
+                _uploadSuccessMessage = $"Uploaded '{result.FileName}' ({(result.FileSize / 1024.0):0.0} KB).";
+            }
+            else
+            {
+                _uploadError = "Server rejected the upload. Please verify file format and size.";
+            }
+        }
+        catch (Exception ex)
+        {
+            _uploadError = $"Upload failed: {ex.Message}";
+        }
+        finally
+        {
+            _isUploading = false;
+            StateHasChanged();
+        }
+    }
+
+    private void ClearImage()
+    {
+        if (Model != null)
+        {
+            Model.ImageUrl = null;
+            _uploadSuccessMessage = null;
+            _uploadError = null;
+        }
+    }
+
+    private bool _isPulseAnimating;
+
+    private async Task HandleBackdropClick()
+    {
+        if (!_isPulseAnimating)
+        {
+            _isPulseAnimating = true;
+            StateHasChanged();
+            await Task.Delay(250);
+            _isPulseAnimating = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task HandleCancel()
+    {
+        if (!IsSubmitting && !_isUploading)
+        {
+            _uploadError = null;
+            _uploadSuccessMessage = null;
+            await OnCancel.InvokeAsync();
+        }
+    }
+
+    private async Task HandleSubmit()
+    {
+        if (Model != null && !IsSubmitting && !_isUploading)
+        {
+            if (!Model.IsEditMode && Model.Quantity <= 0)
+            {
+                return;
+            }
+            await OnSave.InvokeAsync(Model);
+        }
+    }
+}

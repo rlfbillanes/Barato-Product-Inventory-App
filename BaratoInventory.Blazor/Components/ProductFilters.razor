@@ -1,0 +1,104 @@
+@namespace BaratoInventory.Blazor.Components
+
+<div class="filter-bar">
+    <div class="filter-item">
+        <label class="filter-label">
+            Category:
+            <span class="hover-note-icon" data-tooltip="Filter inventory by category. Newly added categories appear here immediately." data-tooltip-pos="top">ⓘ</span>
+        </label>
+        <select class="form-select filter-select" value="@SelectedCategory" @onchange="HandleCategoryChange"
+                data-tooltip="Select a department/category to filter products" data-tooltip-pos="top">
+            <option value="">All Categories</option>
+            @if (Categories != null)
+            {
+                @foreach (var cat in Categories)
+                {
+                    <option value="@cat">@cat</option>
+                }
+            }
+        </select>
+    </div>
+
+    <div class="filter-item">
+        <label class="filter-label">Sort By:</label>
+        <select class="form-select filter-select" value="@SelectedSortBy" @onchange="HandleSortByChange"
+                data-tooltip="Sort catalog by Name, Price, Quantity, Category, or Recently Added" data-tooltip-pos="top">
+            <option value="name">Product Name</option>
+            <option value="price">Price</option>
+            <option value="quantity">Stock Quantity</option>
+            <option value="category">Category</option>
+            <option value="id">Recently Added</option>
+        </select>
+    </div>
+
+    <div class="filter-item">
+        <button class="btn btn-outline btn-sort-direction" @onclick="ToggleDirection" 
+                data-tooltip="Toggle sorting direction: Descending (highest/newest) or Ascending (lowest/oldest)" data-tooltip-pos="top">
+            @if (IsDescending)
+            {
+                <span>Desc &darr;</span>
+            }
+            else
+            {
+                <span>Asc &uarr;</span>
+            }
+        </button>
+    </div>
+
+    @if (!string.IsNullOrWhiteSpace(SelectedCategory) || SelectedSortBy != "id" || IsDescending)
+    {
+        <div class="filter-item">
+            <button class="btn btn-link btn-reset" @onclick="ResetFilters"
+                    data-tooltip="Clear search keywords and reset all filters to show full inventory" data-tooltip-pos="top">Reset Filters</button>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter]
+    public IEnumerable<string>? Categories { get; set; }
+
+    [Parameter]
+    public string SelectedCategory { get; set; } = string.Empty;
+
+    [Parameter]
+    public string SelectedSortBy { get; set; } = "id";
+
+    [Parameter]
+    public bool IsDescending { get; set; } = true;
+
+    [Parameter]
+    public EventCallback<string> OnCategorySelected { get; set; }
+
+    [Parameter]
+    public EventCallback<(string SortBy, bool Descending)> OnSortChanged { get; set; }
+
+    [Parameter]
+    public EventCallback OnResetRequested { get; set; }
+
+    private async Task HandleCategoryChange(ChangeEventArgs e)
+    {
+        SelectedCategory = e.Value?.ToString() ?? string.Empty;
+        await OnCategorySelected.InvokeAsync(SelectedCategory);
+    }
+
+    private async Task HandleSortByChange(ChangeEventArgs e)
+    {
+        SelectedSortBy = e.Value?.ToString() ?? "id";
+        await OnSortChanged.InvokeAsync((SelectedSortBy, IsDescending));
+    }
+
+    private async Task ToggleDirection()
+    {
+        IsDescending = !IsDescending;
+        await OnSortChanged.InvokeAsync((SelectedSortBy, IsDescending));
+    }
+
+    private async Task ResetFilters()
+    {
+        SelectedCategory = string.Empty;
+        SelectedSortBy = "id";
+        IsDescending = true;
+        await OnResetRequested.InvokeAsync();
+    }
+}

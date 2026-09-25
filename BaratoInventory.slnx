@@ -1,0 +1,7 @@
+<Solution>
+  <Project Path="BaratoInventory.API/BaratoInventory.API.csproj" />
+  <Project Path="BaratoInventory.Blazor/BaratoInventory.Blazor.csproj" />
+  <Project Path="BaratoInventory.Core/BaratoInventory.Core.csproj" />
+  <Project Path="BaratoInventory.Infrastructure/BaratoInventory.Infrastructure.csproj" />
+  <Project Path="BaratoInventory.Tests/BaratoInventory.Tests.csproj" />
+</Solution>

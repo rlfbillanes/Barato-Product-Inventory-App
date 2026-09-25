@@ -1,0 +1,508 @@
+@page "/"
+@page "/products"
+@using BaratoInventory.Core.DTOs
+@using BaratoInventory.Blazor.Components
+@using BaratoInventory.Blazor.Services
+@inject IProductApiClient ApiClient
+@inject ILogger<Products> Logger
+
+<PageTitle>Barato Product Inventory App</PageTitle>
+
+<div class="inventory-dashboard">
+    <!-- Ephemeral Floating Notification Toast -->
+    <NotificationToast IsVisible="@_toastVisible"
+                       Title="@_toastTitle"
+                       Message="@_toastMessage"
+                       Severity="@_toastSeverity"
+                       OnDismiss="DismissToast" />
+
+    <!-- Header Banner -->
+    <header class="dashboard-header">
+        <div class="header-content">
+            <div>
+                <h1 class="header-title">
+                    Barato Product Inventory Catalog
+                    <span class="hover-note-icon" data-tooltip="Centralized inventory dashboard connected to ASP.NET Core API, SQL Server 2022, and Redis caching." data-tooltip-pos="bottom">ⓘ</span>
+                </h1>
+                <p class="header-subtitle">Real-time stock tracking, catalog search, and centralized product management.</p>
+            </div>
+            <div class="header-actions">
+                <button class="btn btn-primary btn-add-product" @onclick="OpenAddModal"
+                        data-tooltip="Add a new product with stock, category, price, and photo" data-tooltip-pos="bottom">
+                    <span class="btn-icon">+</span> Add New Product
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Toolbar: Search and Filters -->
+    <section class="dashboard-toolbar">
+        <div class="toolbar-left">
+            <ProductSearch SearchTerm="@_searchTerm" 
+                           OnSearchChanged="HandleSearchChanged" />
+        </div>
+        <div class="toolbar-right">
+            <ProductFilters Categories="@_categories"
+                            SelectedCategory="@_selectedCategory"
+                            SelectedSortBy="@_sortBy"
+                            IsDescending="@_descending"
+                            OnCategorySelected="HandleCategorySelected"
+                            OnSortChanged="HandleSortChanged"
+                            OnResetRequested="HandleResetFilters" />
+        </div>
+    </section>
+
+    <!-- Main Table View -->
+    <section class="dashboard-content">
+        <ProductTable Products="@_pagedResult?.Items"
+                      IsLoading="@_isLoading"
+                      PageSize="@_pageSize"
+                      CurrentSortBy="@_sortBy"
+                      IsDescending="@_descending"
+                      OnSortColumnClicked="HandleSortColumnClicked"
+                      OnEditRequested="OpenEditModal"
+                      OnDeleteRequested="OpenDeleteModal"
+                      OnStockAdjusted="HandleStockAdjusted" />
+
+        <!-- Pagination Controls -->
+        <ProductPagination CurrentPage="@_currentPage"
+                           PageSize="@_pageSize"
+                           TotalCount="@(_pagedResult?.TotalCount ?? 0)"
+                           TotalPages="@(_pagedResult?.TotalPages ?? 1)"
+                           OnPageChanged="HandlePageChanged"
+                           OnPageSizeChanged="HandlePageSizeChanged" />
+    </section>
+
+    <!-- Add / Edit Modal Dialog -->
+    <ProductFormModal IsOpen="@_isFormModalOpen"
+                      Model="@_formModel"
+                      AvailableCategories="@_categories"
+                      IsSubmitting="@_isFormSubmitting"
+                      ErrorMessage="@_formErrorMessage"
+                      IsConcurrencyConflict="@_isConcurrencyConflict"
+                      OnReloadLatest="HandleReloadLatest"
+                      OnForceOverwrite="HandleForceOverwrite"
+                      OnCancel="CloseFormModal"
+                      OnSave="HandleSaveProduct" />
+
+    <!-- Delete Confirmation Modal Dialog -->
+    <DeleteConfirmModal IsOpen="@_isDeleteModalOpen"
+                        Product="@_selectedProductForDelete"
+                        IsSubmitting="@_isDeleteSubmitting"
+                        OnCancel="CloseDeleteModal"
+                        OnConfirm="HandleConfirmDelete" />
+</div>
+
+@code {
+    private PagedResult<ProductDto>? _pagedResult;
+    private IEnumerable<string>? _categories;
+    private bool _isLoading = true;
+
+    private string? _searchTerm;
+    private string _selectedCategory = string.Empty;
+    private string _sortBy = "id";
+    private bool _descending = true;
+    private int _currentPage = 1;
+    private int _pageSize = 10;
+
+    // Toast State
+    private bool _toastVisible;
+    private string _toastTitle = string.Empty;
+    private string _toastMessage = string.Empty;
+    private string _toastSeverity = "info";
+
+    // Form Modal State
+    private bool _isFormModalOpen;
+    private ProductFormModel? _formModel;
+    private bool _isFormSubmitting;
+    private string? _formErrorMessage;
+    private bool _isConcurrencyConflict;
+
+    // Delete Modal State
+    private bool _isDeleteModalOpen;
+    private ProductDto? _selectedProductForDelete;
+    private bool _isDeleteSubmitting;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadCategoriesAsync();
+        await LoadProductsAsync();
+    }
+
+    private async Task LoadCategoriesAsync()
+    {
+        try
+        {
+            _categories = await ApiClient.GetCategoriesAsync();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Could not fetch categories.");
+        }
+    }
+
+    private async Task LoadProductsAsync()
+    {
+        _isLoading = true;
+        StateHasChanged();
+
+        try
+        {
+            _pagedResult = await ApiClient.GetProductsAsync(
+                search: _searchTerm,
+                category: _selectedCategory,
+                sortBy: _sortBy,
+                descending: _descending,
+                page: _currentPage,
+                pageSize: _pageSize
+            );
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error while loading products.");
+            ShowToast("Error", "Failed to retrieve products from server. Please verify backend service is active.", "danger");
+        }
+        finally
+        {
+            _isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task HandleSearchChanged(string search)
+    {
+        _searchTerm = search;
+        _currentPage = 1;
+        await LoadProductsAsync();
+    }
+
+    private async Task HandleCategorySelected(string category)
+    {
+        _selectedCategory = category;
+        _currentPage = 1;
+        await LoadProductsAsync();
+    }
+
+    private async Task HandleSortChanged((string SortBy, bool Descending) sort)
+    {
+        _sortBy = sort.SortBy;
+        _descending = sort.Descending;
+        _currentPage = 1;
+        await LoadProductsAsync();
+    }
+
+    private async Task HandleSortColumnClicked(string column)
+    {
+        if (_sortBy.Equals(column, StringComparison.OrdinalIgnoreCase))
+        {
+            _descending = !_descending;
+        }
+        else
+        {
+            _sortBy = column;
+            _descending = false;
+        }
+
+        _currentPage = 1;
+        await LoadProductsAsync();
+    }
+
+    private async Task HandlePageChanged(int newPage)
+    {
+        _currentPage = newPage;
+        await LoadProductsAsync();
+    }
+
+    private async Task HandlePageSizeChanged(int newSize)
+    {
+        _pageSize = newSize;
+        _currentPage = 1;
+        await LoadProductsAsync();
+    }
+
+    private void HandleResetFilters()
+    {
+        _selectedCategory = string.Empty;
+        _sortBy = "id";
+        _descending = true;
+        _searchTerm = string.Empty;
+        _currentPage = 1;
+        _ = LoadProductsAsync();
+    }
+
+    private async Task HandleStockAdjusted((int ProductId, int Change, byte[] RowVersion) adjustment)
+    {
+        try
+        {
+            var success = await ApiClient.AdjustQuantityAsync(adjustment.ProductId, new AdjustQuantityDto(adjustment.Change, adjustment.RowVersion));
+            if (success)
+            {
+                ShowToast("Stock Updated", $"Inventory adjusted by {(adjustment.Change > 0 ? "+" : "")}{adjustment.Change} units.", "success");
+                await LoadProductsAsync();
+            }
+            else
+            {
+                ShowToast("Action Blocked", "Could not adjust inventory (e.g. stock cannot drop below zero, or another user edited the item).", "warning");
+                await LoadProductsAsync();
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to adjust stock.");
+            ShowToast("Error", "An unexpected error occurred while adjusting inventory.", "danger");
+        }
+    }
+
+    // Modal Triggers
+    private void OpenAddModal()
+    {
+        _formErrorMessage = null;
+        _formModel = new ProductFormModel();
+        _isFormModalOpen = true;
+    }
+
+    private async Task OpenEditModal(ProductDto product)
+    {
+        _formErrorMessage = null;
+        _isConcurrencyConflict = false;
+        _formModel = ProductFormModel.FromDto(product);
+        _isFormModalOpen = true;
+
+        // Fetch fresh copy from the API in the background so the modal always has the latest RowVersion and stock
+        try
+        {
+            var freshProduct = await ApiClient.GetProductByIdAsync(product.Id);
+            if (freshProduct != null && _isFormModalOpen && _formModel?.Id == product.Id)
+            {
+                _formModel.RowVersion = freshProduct.RowVersion;
+                // If the user has not edited these values yet, synchronize them to the latest state
+                if (_formModel.Quantity == product.Quantity)
+                {
+                    _formModel.Quantity = freshProduct.Quantity;
+                }
+                if (_formModel.Price == product.Price)
+                {
+                    _formModel.Price = freshProduct.Price;
+                }
+                if (_formModel.Name == product.Name)
+                {
+                    _formModel.Name = freshProduct.Name;
+                }
+                if (_formModel.Category == product.Category)
+                {
+                    _formModel.Category = freshProduct.Category;
+                }
+                StateHasChanged();
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Failed to refresh product data for #{Id}.", product.Id);
+        }
+    }
+
+    private void CloseFormModal()
+    {
+        _isFormModalOpen = false;
+        _formModel = null;
+        _formErrorMessage = null;
+        _isConcurrencyConflict = false;
+    }
+
+    private async Task HandleSaveProduct(ProductFormModel model)
+    {
+        if (!model.IsEditMode && model.Quantity <= 0)
+        {
+            _formErrorMessage = "Initial quantity must be greater than zero.";
+            return;
+        }
+
+        _isFormSubmitting = true;
+        _formErrorMessage = null;
+        _isConcurrencyConflict = false;
+
+        try
+        {
+            if (model.IsEditMode)
+            {
+                var result = await ApiClient.UpdateProductWithResultAsync(model.Id, model.ToUpdateDto());
+                if (result.IsSuccess)
+                {
+                    ShowToast("Updated", $"Product '{model.Name}' updated successfully.", "success");
+                    CloseFormModal();
+                    await LoadCategoriesAsync();
+                    await LoadProductsAsync();
+                }
+                else if (result.IsConcurrencyConflict)
+                {
+                    _isConcurrencyConflict = true;
+                    _formErrorMessage = "This product was modified concurrently by another user or session. You can reload the latest values or overwrite with your current changes.";
+                }
+                else
+                {
+                    _isConcurrencyConflict = false;
+                    _formErrorMessage = result.ErrorMessage ?? "Failed to update product. Please review the inputs and try again.";
+                }
+            }
+            else
+            {
+                var created = await ApiClient.CreateProductAsync(model.ToCreateDto());
+                if (created != null)
+                {
+                    ShowToast("Created", $"Product '{created.Name}' added to inventory.", "success");
+                    CloseFormModal();
+                    await LoadCategoriesAsync();
+                    await LoadProductsAsync();
+                }
+                else
+                {
+                    _formErrorMessage = "Failed to create product. Please verify fields and ensure the title is valid.";
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error while saving product.");
+            _formErrorMessage = "An unexpected error occurred while communicating with the server.";
+        }
+        finally
+        {
+            _isFormSubmitting = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task HandleReloadLatest()
+    {
+        if (_formModel == null) return;
+
+        try
+        {
+            _isFormSubmitting = true;
+            var freshProduct = await ApiClient.GetProductByIdAsync(_formModel.Id);
+            if (freshProduct != null)
+            {
+                _formModel = ProductFormModel.FromDto(freshProduct);
+                _formErrorMessage = null;
+                _isConcurrencyConflict = false;
+                ShowToast("Refreshed", $"Loaded latest data for '{freshProduct.Name}'.", "info");
+            }
+            else
+            {
+                _formErrorMessage = "Could not reload the product. It may have been deleted.";
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to reload latest product.");
+            _formErrorMessage = "Error reloading latest product information.";
+        }
+        finally
+        {
+            _isFormSubmitting = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task HandleForceOverwrite()
+    {
+        if (_formModel == null) return;
+
+        try
+        {
+            _isFormSubmitting = true;
+            _formErrorMessage = null;
+
+            // Fetch latest RowVersion from server
+            var freshProduct = await ApiClient.GetProductByIdAsync(_formModel.Id);
+            if (freshProduct != null)
+            {
+                _formModel.RowVersion = freshProduct.RowVersion;
+                var result = await ApiClient.UpdateProductWithResultAsync(_formModel.Id, _formModel.ToUpdateDto());
+                if (result.IsSuccess)
+                {
+                    ShowToast("Updated", $"Product '{_formModel.Name}' saved successfully.", "success");
+                    CloseFormModal();
+                    await LoadCategoriesAsync();
+                    await LoadProductsAsync();
+                    return;
+                }
+                else
+                {
+                    _formErrorMessage = result.ErrorMessage ?? "Failed to overwrite product changes.";
+                    _isConcurrencyConflict = result.IsConcurrencyConflict;
+                }
+            }
+            else
+            {
+                _formErrorMessage = "Product was not found on server.";
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to force overwrite product.");
+            _formErrorMessage = "Error applying changes to server.";
+        }
+        finally
+        {
+            _isFormSubmitting = false;
+            StateHasChanged();
+        }
+    }
+
+    private void OpenDeleteModal(ProductDto product)
+    {
+        _selectedProductForDelete = product;
+        _isDeleteModalOpen = true;
+    }
+
+    private void CloseDeleteModal()
+    {
+        _isDeleteModalOpen = false;
+        _selectedProductForDelete = null;
+    }
+
+    private async Task HandleConfirmDelete(ProductDto product)
+    {
+        _isDeleteSubmitting = true;
+
+        try
+        {
+            var success = await ApiClient.DeleteProductAsync(product.Id);
+            if (success)
+            {
+                ShowToast("Deleted", $"Product '{product.Name}' removed from catalog.", "success");
+                CloseDeleteModal();
+                await LoadCategoriesAsync();
+                await LoadProductsAsync();
+            }
+            else
+            {
+                ShowToast("Delete Failed", "Could not delete product from server.", "danger");
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error while deleting product.");
+            ShowToast("Error", "Unexpected error deleting product.", "danger");
+        }
+        finally
+        {
+            _isDeleteSubmitting = false;
+            StateHasChanged();
+        }
+    }
+
+    private void ShowToast(string title, string message, string severity)
+    {
+        _toastTitle = title;
+        _toastMessage = message;
+        _toastSeverity = severity;
+        _toastVisible = true;
+    }
+
+    private void DismissToast()
+    {
+        _toastVisible = false;
+    }
+}

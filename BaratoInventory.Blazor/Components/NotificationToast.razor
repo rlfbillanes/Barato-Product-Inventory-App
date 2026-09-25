@@ -1,0 +1,52 @@
+@namespace BaratoInventory.Blazor.Components
+
+@if (IsVisible)
+{
+    <div class="toast-notification toast-@Severity" role="alert">
+        <div class="toast-icon">
+            @switch (Severity)
+            {
+                case "success":
+                    <span>&#10004;</span>
+                    break;
+                case "danger":
+                    <span>&#10006;</span>
+                    break;
+                case "warning":
+                    <span>&#9888;</span>
+                    break;
+                default:
+                    <span>&#8505;</span>
+                    break;
+            }
+        </div>
+        <div class="toast-body">
+            <strong class="toast-title">@Title</strong>
+            <p class="toast-message">@Message</p>
+        </div>
+        <button type="button" class="toast-close" @onclick="Dismiss" aria-label="Close">&times;</button>
+    </div>
+}
+
+@code {
+    [Parameter]
+    public bool IsVisible { get; set; }
+
+    [Parameter]
+    public string Title { get; set; } = string.Empty;
+
+    [Parameter]
+    public string Message { get; set; } = string.Empty;
+
+    [Parameter]
+    public string Severity { get; set; } = "info"; // success, danger, warning, info
+
+    [Parameter]
+    public EventCallback OnDismiss { get; set; }
+
+    private async Task Dismiss()
+    {
+        IsVisible = false;
+        await OnDismiss.InvokeAsync();
+    }
+}

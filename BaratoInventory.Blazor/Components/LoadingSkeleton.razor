@@ -1,0 +1,19 @@
+@namespace BaratoInventory.Blazor.Components
+
+@for (int i = 0; i < RowCount; i++)
+{
+    <tr class="skeleton-row">
+        <td><div class="skeleton-box skeleton-text-sm"></div></td>
+        <td><div class="skeleton-box skeleton-thumb"></div></td>
+        <td><div class="skeleton-box skeleton-text-lg"></div></td>
+        <td><div class="skeleton-box skeleton-badge"></div></td>
+        <td><div class="skeleton-box skeleton-text-md"></div></td>
+        <td><div class="skeleton-box skeleton-badge"></div></td>
+        <td><div class="skeleton-box skeleton-actions"></div></td>
+    </tr>
+}
+
+@code {
+    [Parameter]
+    public int RowCount { get; set; } = 5;
+}

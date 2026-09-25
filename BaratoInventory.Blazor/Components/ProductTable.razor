@@ -1,0 +1,103 @@
+@namespace BaratoInventory.Blazor.Components
+@using BaratoInventory.Core.DTOs
+
+<div class="table-responsive product-table-card">
+    <table class="table custom-product-table">
+        <thead>
+            <tr>
+                <th class="col-sortable" @onclick='() => SortColumn("id")' data-tooltip="Click to sort by Product ID" data-tooltip-pos="bottom">
+                    ID @GetSortIndicator("id")
+                </th>
+                <th class="col-image" data-tooltip="Product photo. Hover over thumbnails to zoom" data-tooltip-pos="bottom">
+                    Item
+                </th>
+                <th class="col-sortable" @onclick='() => SortColumn("name")' data-tooltip="Click to sort alphabetically by Product Title" data-tooltip-pos="bottom">
+                    Product Title @GetSortIndicator("name")
+                </th>
+                <th class="col-sortable" @onclick='() => SortColumn("category")' data-tooltip="Click to sort by Department/Category" data-tooltip-pos="bottom">
+                    Category @GetSortIndicator("category")
+                </th>
+                <th class="col-sortable" @onclick='() => SortColumn("price")' data-tooltip="Click to sort by Unit Price (₱)" data-tooltip-pos="bottom">
+                    Unit Price @GetSortIndicator("price")
+                </th>
+                <th class="col-sortable" @onclick='() => SortColumn("quantity")' data-tooltip="Click to sort by Stock count" data-tooltip-pos="bottom">
+                    Inventory Level @GetSortIndicator("quantity")
+                </th>
+                <th class="col-static" data-tooltip="Quick management actions: adjust stock, edit, or delete" data-tooltip-pos="bottom">
+                    Actions
+                </th>
+            </tr>
+        </thead>
+        <tbody>
+            @if (IsLoading)
+            {
+                <LoadingSkeleton RowCount="@PageSize" />
+            }
+            else if (Products != null && Products.Any())
+            {
+                @foreach (var product in Products)
+                {
+                    <ProductRow Product="@product" 
+                                OnEditRequested="OnEditRequested" 
+                                OnDeleteRequested="OnDeleteRequested" 
+                                OnStockAdjusted="OnStockAdjusted" />
+                }
+            }
+            else
+            {
+                <tr>
+                    <td colspan="7" class="empty-state-cell">
+                        <div class="empty-state">
+                            <div class="empty-icon">&#128230;</div>
+                            <h4 class="empty-title">No products found</h4>
+                            <p class="empty-subtitle">Try adjusting your search criteria, clearing category filters, or add a new product.</p>
+                        </div>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+</div>
+
+@code {
+    [Parameter]
+    public IEnumerable<ProductDto>? Products { get; set; }
+
+    [Parameter]
+    public bool IsLoading { get; set; }
+
+    [Parameter]
+    public int PageSize { get; set; } = 10;
+
+    [Parameter]
+    public string CurrentSortBy { get; set; } = "id";
+
+    [Parameter]
+    public bool IsDescending { get; set; } = true;
+
+    [Parameter]
+    public EventCallback<string> OnSortColumnClicked { get; set; }
+
+    [Parameter]
+    public EventCallback<ProductDto> OnEditRequested { get; set; }
+
+    [Parameter]
+    public EventCallback<ProductDto> OnDeleteRequested { get; set; }
+
+    [Parameter]
+    public EventCallback<(int ProductId, int Change, byte[] RowVersion)> OnStockAdjusted { get; set; }
+
+    private async Task SortColumn(string column)
+    {
+        await OnSortColumnClicked.InvokeAsync(column);
+    }
+
+    private string GetSortIndicator(string column)
+    {
+        if (CurrentSortBy.Equals(column, StringComparison.OrdinalIgnoreCase))
+        {
+            return IsDescending ? "▼" : "▲";
+        }
+        return "⇅";
+    }
+}

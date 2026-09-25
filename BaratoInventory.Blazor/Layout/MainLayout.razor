@@ -1,0 +1,28 @@
+@inherits LayoutComponentBase
+
+<div class="app-layout">
+    <nav class="top-navbar">
+        <div class="nav-brand">
+            <a href="" class="brand-logo-container">
+                <img src="images/kcc-logo.webp" alt="KCC Logo" class="brand-logo" width="36" height="20" style="height: 20px; max-height: 20px; width: auto; max-width: 44px; object-fit: contain; display: block;" />
+            </a>
+            <a href="" class="brand-title">Barato Product Inventory App</a>
+        </div>
+        <div class="nav-links">
+            <NavLink href="" Match="NavLinkMatch.All" class="nav-link" data-tooltip="View and manage warehouse product catalog, stock levels, and pricing" data-tooltip-pos="bottom">📦 Catalog</NavLink>
+            <NavLink href="settings" class="nav-link" data-tooltip="Configure backend API endpoints, environment presets, and cache stats" data-tooltip-pos="bottom">⚙️ Settings</NavLink>
+            <span class="nav-tag" data-tooltip="Client-side WebAssembly architecture powered by .NET 8 LTS" data-tooltip-pos="bottom">.NET 8 Blazor WASM</span>
+        </div>
+    </nav>
+
+    <main class="main-body">
+        @Body
+    </main>
+
+    <footer class="app-footer">
+        <div class="footer-container">
+            <span>&copy;@DateTime.UtcNow.Year Designed and Developed by Ralph Lester Billanes</span>
+            <span>Connected to Web API &bull; Redis Cache &bull; SQL Server</span>
+        </div>
+    </footer>
+</div>

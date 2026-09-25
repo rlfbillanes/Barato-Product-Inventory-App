@@ -1,0 +1,98 @@
+@namespace BaratoInventory.Blazor.Components
+@using BaratoInventory.Core.DTOs
+@using BaratoInventory.Blazor.Services
+@inject IProductApiClient ApiClient
+
+<tr class="product-row @(Product.Quantity == 0 ? "row-out-of-stock" : "")">
+    <td class="col-id">#@Product.Id</td>
+    <td class="col-image">
+        <div class="product-thumb-container">
+            @if (!string.IsNullOrWhiteSpace(Product.ImageUrl))
+            {
+                var resolvedUrl = ApiClient.ResolveImageUrl(Product.ImageUrl);
+                <img src="@resolvedUrl" alt="@Product.Name" class="product-thumb-img" loading="lazy" />
+                <div class="product-thumb-zoom-card">
+                    <img src="@resolvedUrl" alt="@Product.Name" class="zoom-preview-img" />
+                    <div class="zoom-preview-info">
+                        <span class="zoom-preview-title">@Product.Name</span>
+                        <span class="zoom-preview-badge">@Product.Category</span>
+                    </div>
+                </div>
+            }
+            else
+            {
+                <div class="product-thumb-placeholder">
+                    <span>📦</span>
+                </div>
+            }
+        </div>
+    </td>
+    <td class="col-name">
+        <span class="product-title">@Product.Name</span>
+    </td>
+    <td class="col-category">
+        <span class="badge badge-category">@Product.Category</span>
+    </td>
+    <td class="col-price">
+        <span class="price-text">₱@Product.Price.ToString("N2")</span>
+    </td>
+    <td class="col-stock">
+        <div class="stock-pill-wrapper">
+            @if (Product.Quantity <= 0)
+            {
+                <span class="badge badge-danger" data-tooltip="Critical: 0 items remaining in stock!" data-tooltip-pos="top">Out of Stock (0)</span>
+            }
+            else if (Product.Quantity <= 10)
+            {
+                <span class="badge badge-warning" data-tooltip="Low Stock Warning (≤ 10 items remaining)" data-tooltip-pos="top">Low Stock (@Product.Quantity)</span>
+            }
+            else
+            {
+                <span class="badge badge-success" data-tooltip="Healthy stock level available in inventory" data-tooltip-pos="top">In Stock (@Product.Quantity)</span>
+            }
+
+            <div class="quick-stock-controls">
+                <button class="btn btn-stock-step" 
+                        disabled="@(Product.Quantity <= 0)" 
+                        @onclick="() => AdjustStock(-1)" 
+                        data-tooltip="Quick reduce stock by 1 unit" 
+                        data-tooltip-pos="top">-</button>
+                <button class="btn btn-stock-step" 
+                        @onclick="() => AdjustStock(1)" 
+                        data-tooltip="Quick increase stock by 1 unit" 
+                        data-tooltip-pos="top">+</button>
+            </div>
+        </div>
+    </td>
+    <td class="col-actions">
+        <div class="action-btn-group">
+            <button class="btn btn-sm btn-outline-primary" @onclick="() => OnEditRequested.InvokeAsync(Product)" 
+                    data-tooltip="Edit product details, price, category, or photo" data-tooltip-pos="left">
+                Edit
+            </button>
+            <button class="btn btn-sm btn-outline-danger" @onclick="() => OnDeleteRequested.InvokeAsync(Product)" 
+                    data-tooltip="Soft delete this product from active inventory" data-tooltip-pos="left">
+                Delete
+            </button>
+        </div>
+    </td>
+</tr>
+
+@code {
+    [Parameter, EditorRequired]
+    public ProductDto Product { get; set; } = default!;
+
+    [Parameter]
+    public EventCallback<ProductDto> OnEditRequested { get; set; }
+
+    [Parameter]
+    public EventCallback<ProductDto> OnDeleteRequested { get; set; }
+
+    [Parameter]
+    public EventCallback<(int ProductId, int Change, byte[] RowVersion)> OnStockAdjusted { get; set; }
+
+    private async Task AdjustStock(int change)
+    {
+        await OnStockAdjusted.InvokeAsync((Product.Id, change, Product.RowVersion));
+    }
+}

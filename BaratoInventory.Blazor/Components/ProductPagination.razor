@@ -1,0 +1,117 @@
+@namespace BaratoInventory.Blazor.Components
+
+<div class="pagination-container">
+    <div class="pagination-info">
+        @if (TotalCount > 0)
+        {
+            var start = ((CurrentPage - 1) * PageSize) + 1;
+            var end = Math.Min(CurrentPage * PageSize, TotalCount);
+            <span>Showing <strong>@start</strong> to <strong>@end</strong> of <strong>@TotalCount</strong> items</span>
+        }
+        else
+        {
+            <span>Showing <strong>0</strong> items</span>
+        }
+
+        <div class="page-size-selector" data-tooltip="Select number of products displayed per page" data-tooltip-pos="top">
+            <label for="pageSizeSelect">Per page:</label>
+            <select id="pageSizeSelect" class="form-select form-select-sm" value="@PageSize" @onchange="HandlePageSizeChange">
+                <option value="5">5</option>
+                <option value="10">10</option>
+                <option value="20">20</option>
+                <option value="50">50</option>
+            </select>
+        </div>
+    </div>
+
+    @if (TotalPages > 1)
+    {
+        <div class="pagination-controls">
+            <button class="btn btn-pagination-nav" 
+                    disabled="@(CurrentPage <= 1)" 
+                    @onclick="() => ChangePage(1)" 
+                    data-tooltip="First Page"
+                    data-tooltip-pos="top">
+                &laquo;
+            </button>
+            <button class="btn btn-pagination-nav" 
+                    disabled="@(CurrentPage <= 1)" 
+                    @onclick="() => ChangePage(CurrentPage - 1)" 
+                    data-tooltip="Previous Page"
+                    data-tooltip-pos="top">
+                &lsaquo;
+            </button>
+
+            @foreach (var p in GetVisiblePageNumbers())
+            {
+                <button class="btn btn-page-number @(p == CurrentPage ? "active" : "")" 
+                        @onclick="() => ChangePage(p)">
+                    @p
+                </button>
+            }
+
+            <button class="btn btn-pagination-nav" 
+                    disabled="@(CurrentPage >= TotalPages)" 
+                    @onclick="() => ChangePage(CurrentPage + 1)" 
+                    data-tooltip="Next Page"
+                    data-tooltip-pos="top">
+                &rsaquo;
+            </button>
+            <button class="btn btn-pagination-nav" 
+                    disabled="@(CurrentPage >= TotalPages)" 
+                    @onclick="() => ChangePage(TotalPages)" 
+                    data-tooltip="Last Page"
+                    data-tooltip-pos="top">
+                &raquo;
+            </button>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter]
+    public int CurrentPage { get; set; } = 1;
+
+    [Parameter]
+    public int PageSize { get; set; } = 10;
+
+    [Parameter]
+    public int TotalCount { get; set; } = 0;
+
+    [Parameter]
+    public int TotalPages { get; set; } = 1;
+
+    [Parameter]
+    public EventCallback<int> OnPageChanged { get; set; }
+
+    [Parameter]
+    public EventCallback<int> OnPageSizeChanged { get; set; }
+
+    private async Task ChangePage(int newPage)
+    {
+        if (newPage >= 1 && newPage <= TotalPages && newPage != CurrentPage)
+        {
+            await OnPageChanged.InvokeAsync(newPage);
+        }
+    }
+
+    private async Task HandlePageSizeChange(ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value?.ToString(), out var newSize))
+        {
+            await OnPageSizeChanged.InvokeAsync(newSize);
+        }
+    }
+
+    private IEnumerable<int> GetVisiblePageNumbers()
+    {
+        int window = 2;
+        int start = Math.Max(1, CurrentPage - window);
+        int end = Math.Min(TotalPages, CurrentPage + window);
+
+        for (int i = start; i <= end; i++)
+        {
+            yield return i;
+        }
+    }
+}

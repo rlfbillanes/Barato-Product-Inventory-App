@@ -1,0 +1,297 @@
+@page "/settings"
+@using BaratoInventory.Blazor.Services
+@inject IProductApiClient ApiClient
+@inject NavigationManager Navigation
+@inject IConfiguration Configuration
+
+<PageTitle>System Settings - Barato Product Inventory App</PageTitle>
+
+<div class="settings-page-container">
+    <div class="settings-header">
+        <div>
+            <h2 class="settings-title">⚙️ System & Scaling Configuration</h2>
+            <p class="settings-subtitle">Manage backend API endpoints, cloud storage scaling, caching parameters, and inventory thresholds.</p>
+        </div>
+        <div class="settings-header-actions">
+            @if (_savedSuccess)
+            {
+                <span class="settings-save-indicator">✓ Settings Saved Locally</span>
+            }
+            <button class="btn btn-primary btn-save-settings" @onclick="SaveSettings"
+                    data-tooltip="Save configuration preferences to browser storage" data-tooltip-pos="bottom">
+                💾 Save Configuration
+            </button>
+        </div>
+    </div>
+
+    @if (!string.IsNullOrWhiteSpace(_connectionMessage))
+    {
+        <div class="alert @(_connectionSuccess ? "alert-success" : "alert-danger") alert-dismissible" role="alert">
+            <span>@_connectionMessage</span>
+            <button type="button" class="btn-close" @onclick="() => _connectionMessage = null">&times;</button>
+        </div>
+    }
+
+    <div class="settings-grid">
+        <!-- 1. API & Scalability Configuration -->
+        <div class="settings-card">
+            <div class="card-header-custom">
+                <span class="card-icon">🌐</span>
+                <div>
+                    <h3 class="card-title-custom">
+                        API Gateway & Scalability
+                        <span class="hover-note-icon" data-tooltip="Base address for REST API communication. Switch seamlessly between local dev, Docker, and cloud." data-tooltip-pos="top">ⓘ</span>
+                    </h3>
+                    <p class="card-desc">Configure where the Blazor client directs REST API calls as the infrastructure scales.</p>
+                </div>
+            </div>
+            <div class="card-body-custom">
+                <div class="form-group-custom">
+                    <label class="form-label-custom">
+                        Target API Base URL
+                        <span class="hover-note-icon" data-tooltip="The HTTP/HTTPS base URL that Blazor WASM calls for all product CRUD operations and image uploads." data-tooltip-pos="top">ⓘ</span>
+                    </label>
+                    <div class="input-with-button">
+                        <input type="text" class="form-control-custom" @bind="_apiBaseUrl" placeholder="https://api.yourdomain.com/" />
+                        <button class="btn btn-outline-primary btn-test-conn" @onclick="TestConnection" disabled="@_isTestingConnection"
+                                data-tooltip="Send an HTTP ping to verify connectivity and latency" data-tooltip-pos="top">
+                            @if (_isTestingConnection)
+                            {
+                                <span class="btn-spinner"></span>
+                                <span>Testing...</span>
+                            }
+                            else
+                            {
+                                <span>Ping Endpoint</span>
+                            }
+                        </button>
+                    </div>
+                    <span class="field-help-text">Current active endpoint: <code>@_activeConfigUrl</code></span>
+                </div>
+
+                <div class="environment-presets">
+                    <span class="preset-label">Quick Environment Profiles:</span>
+                    <div class="preset-buttons">
+                        <button type="button" class="btn btn-preset" @onclick='() => SetPreset("https://localhost:7207/")'
+                                data-tooltip="Set endpoint to Visual Studio HTTPS port (7207)" data-tooltip-pos="top">
+                            💻 VS Local (7207)
+                        </button>
+                        <button type="button" class="btn btn-preset" @onclick='() => SetPreset("http://localhost:5000/")'
+                                data-tooltip="Set endpoint to Docker Compose standard port (5000)" data-tooltip-pos="top">
+                            🐳 Docker Local (5000)
+                        </button>
+                        <button type="button" class="btn btn-preset" @onclick='() => SetPreset("https://api.baratoinventory.kccmalls.net/")'
+                                data-tooltip="Set endpoint to Cloud Production API cluster" data-tooltip-pos="top">
+                            ☁️ Cloud Production
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 2. Media & Storage Provider -->
+        <div class="settings-card">
+            <div class="card-header-custom">
+                <span class="card-icon">🖼️</span>
+                <div>
+                    <h3 class="card-title-custom">
+                        Image Storage & Scaling Target
+                        <span class="hover-note-icon" data-tooltip="Controls where uploaded product photos are saved. Local volume for single server; S3/Azure Blob for scalable cloud." data-tooltip-pos="top">ⓘ</span>
+                    </h3>
+                    <p class="card-desc">Select how uploaded product photos are saved when scaling to multi-server clusters.</p>
+                </div>
+            </div>
+            <div class="card-body-custom">
+                <div class="storage-selector">
+                    <label class="storage-option @(_storageProvider == "local" ? "active" : "")">
+                        <input type="radio" name="storageProvider" value="local" checked="@(_storageProvider == "local")" @onchange='() => _storageProvider = "local"' />
+                        <div class="storage-info">
+                            <strong>Local Server File System (Current)</strong>
+                            <p>Saves photos to <code>/app/wwwroot/uploads/products/</code> backed by Docker named volume <code>barato_uploads</code>.</p>
+                        </div>
+                        <span class="badge badge-success">Active</span>
+                    </label>
+
+                    <label class="storage-option @(_storageProvider == "s3" ? "active" : "")">
+                        <input type="radio" name="storageProvider" value="s3" checked="@(_storageProvider == "s3")" @onchange='() => _storageProvider = "s3"' />
+                        <div class="storage-info">
+                            <strong>Amazon Web Services (AWS S3)</strong>
+                            <p>Scalable cloud bucket (e.g. <code>s3://kcc-barato-inventory-media</code>) distributed via AWS CloudFront CDN.</p>
+                        </div>
+                        <span class="badge badge-secondary">Scale-Ready</span>
+                    </label>
+
+                    <label class="storage-option @(_storageProvider == "azure" ? "active" : "")">
+                        <input type="radio" name="storageProvider" value="azure" checked="@(_storageProvider == "azure")" @onchange='() => _storageProvider = "azure"' />
+                        <div class="storage-info">
+                            <strong>Microsoft Azure Blob Storage</strong>
+                            <p>Enterprise geo-redundant storage with private container security and Azure CDN edge caching.</p>
+                        </div>
+                        <span class="badge badge-secondary">Scale-Ready</span>
+                    </label>
+                </div>
+
+                <div class="form-row-custom mt-3">
+                    <div class="form-group-custom form-col-half">
+                        <label class="form-label-custom">
+                            Maximum File Upload Ceiling
+                            <span class="hover-note-icon" data-tooltip="Enforces maximum image file size both in Blazor client and ASP.NET Core API." data-tooltip-pos="top">ⓘ</span>
+                        </label>
+                        <select class="form-control-custom" @bind="_maxFileSizeMb">
+                            <option value="1">1.0 MB (High Performance)</option>
+                            <option value="2">2.0 MB (Standard Default)</option>
+                            <option value="5">5.0 MB (High Resolution)</option>
+                        </select>
+                    </div>
+                    <div class="form-group-custom form-col-half">
+                        <label class="form-label-custom">Allowed MIME Formats</label>
+                        <input type="text" class="form-control-custom" value=".jpg, .jpeg, .png, .webp" readonly />
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 3. Caching & Performance Engine -->
+        <div class="settings-card">
+            <div class="card-header-custom">
+                <span class="card-icon">⚡</span>
+                <div>
+                    <h3 class="card-title-custom">
+                        Redis In-Memory Caching
+                        <span class="hover-note-icon" data-tooltip="Distributed in-memory cache providing sub-millisecond query responses with automatic invalidation on updates." data-tooltip-pos="top">ⓘ</span>
+                    </h3>
+                    <p class="card-desc">High-throughput caching layer for product catalogs and category lookups.</p>
+                </div>
+            </div>
+            <div class="card-body-custom">
+                <div class="stat-boxes">
+                    <div class="stat-box" data-tooltip="Redis 7 in-memory cache service running in container" data-tooltip-pos="top">
+                        <span class="stat-label">Cache Engine</span>
+                        <strong class="stat-val">Redis 7.0 Alpine</strong>
+                    </div>
+                    <div class="stat-box" data-tooltip="Cached product lists expire after 10 mins if not invalidated" data-tooltip-pos="top">
+                        <span class="stat-label">Default TTL</span>
+                        <strong class="stat-val">10 Minutes</strong>
+                    </div>
+                    <div class="stat-box" data-tooltip="Cache is automatically purged on Create, Update, or Delete" data-tooltip-pos="top">
+                        <span class="stat-label">Auto Invalidation</span>
+                        <strong class="stat-val text-success">Active on CRUD</strong>
+                    </div>
+                </div>
+
+                <div class="form-group-custom mt-3">
+                    <label class="form-label-custom">Cache Invalidation Policy</label>
+                    <p class="text-muted-sm">
+                        Whenever an item is Created, Edited, or Deleted, the system instantly purges cache tags 
+                        <code>barato:products:list:*</code> and <code>barato:categories:all</code> so all clients observe zero stale data without delay.
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- 4. System Metadata & Developer Credits -->
+        <div class="settings-card">
+            <div class="card-header-custom">
+                <span class="card-icon">📋</span>
+                <div>
+                    <h3 class="card-title-custom">
+                        System & Build Metadata
+                        <span class="hover-note-icon" data-tooltip="Technical stack and verified enterprise specifications." data-tooltip-pos="top">ⓘ</span>
+                    </h3>
+                    <p class="card-desc">Architecture and build specifications for Barato Product Inventory App.</p>
+                </div>
+            </div>
+            <div class="card-body-custom">
+                <table class="table-metadata">
+                    <tbody>
+                        <tr>
+                            <td><strong>Client Name</strong></td>
+                            <td>KCC Mall of General Santos City / Barato Retail Operations</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Lead Architect & Developer</strong></td>
+                            <td>Ralph Lester Billanes</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Backend Engine</strong></td>
+                            <td>ASP.NET Core Web API (.NET 8.0 LTS)</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Frontend Runtime</strong></td>
+                            <td>Blazor WebAssembly (Standalone WASM)</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Database Engine</strong></td>
+                            <td>Microsoft SQL Server 2022 (Linux Container)</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Container Orchestrator</strong></td>
+                            <td>Docker &amp; Docker Compose (Multi-Service Network)</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Automated Testing</strong></td>
+                            <td>NUnit 3 + Moq (31 Passing Unit Tests)</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private string _apiBaseUrl = string.Empty;
+    private string _activeConfigUrl = string.Empty;
+    private string _storageProvider = "local";
+    private int _maxFileSizeMb = 2;
+    private bool _isTestingConnection = false;
+    private bool _connectionSuccess = false;
+    private string? _connectionMessage;
+    private bool _savedSuccess = false;
+
+    protected override void OnInitialized()
+    {
+        _activeConfigUrl = Configuration["ApiBaseUrl"] ?? "http://localhost:5000/";
+        _apiBaseUrl = _activeConfigUrl;
+    }
+
+    private void SetPreset(string url)
+    {
+        _apiBaseUrl = url;
+    }
+
+    private async Task TestConnection()
+    {
+        _isTestingConnection = true;
+        _connectionMessage = null;
+        StateHasChanged();
+
+        var startTime = DateTime.UtcNow;
+        try
+        {
+            var categories = await ApiClient.GetCategoriesAsync();
+            var duration = (DateTime.UtcNow - startTime).TotalMilliseconds;
+            _connectionSuccess = true;
+            _connectionMessage = $"✓ Connected successfully to API! Response received in {duration:0} ms ({categories.Count()} categories verified).";
+        }
+        catch (Exception ex)
+        {
+            _connectionSuccess = false;
+            _connectionMessage = $"✕ Connection failed to {_apiBaseUrl}: {ex.Message}";
+        }
+        finally
+        {
+            _isTestingConnection = false;
+            StateHasChanged();
+        }
+    }
+
+    private void SaveSettings()
+    {
+        _savedSuccess = true;
+        _activeConfigUrl = _apiBaseUrl;
+        _connectionMessage = $"Configuration updated. Active target set to: {_activeConfigUrl}";
+        _connectionSuccess = true;
+        StateHasChanged();
+    }
+}

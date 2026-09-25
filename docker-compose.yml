@@ -1,0 +1,77 @@
+services:
+  barato-db:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: barato-sqlserver
+    environment:
+      - ACCEPT_EULA=Y
+      - MSSQL_SA_PASSWORD=BaratoKCC@123
+      - MSSQL_PID=Developer
+    ports:
+      - "1433:1433"
+    volumes:
+      - barato_sql_data:/var/opt/mssql
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P BaratoKCC@123 -C -Q 'SELECT 1' || /opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P BaratoKCC@123 -Q 'SELECT 1'"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 15s
+    networks:
+      - barato-net
+
+  barato-cache:
+    image: redis:7-alpine
+    container_name: barato-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - barato_redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    networks:
+      - barato-net
+
+  barato-api:
+    build:
+      context: .
+      dockerfile: BaratoInventory.API/Dockerfile
+    container_name: barato-api
+    ports:
+      - "5000:8080"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ConnectionStrings__BaratoDbConnection=Server=barato-db,1433;Database=BaratoInventoryDb;User Id=sa;Password=BaratoKCC@123;TrustServerCertificate=True;MultipleActiveResultSets=true
+      - Redis__Configuration=barato-cache:6379,abortConnect=false
+    depends_on:
+      barato-db:
+        condition: service_healthy
+      barato-cache:
+        condition: service_healthy
+    volumes:
+      - barato_uploads:/app/wwwroot/uploads
+    networks:
+      - barato-net
+
+  barato-blazor:
+    build:
+      context: .
+      dockerfile: BaratoInventory.Blazor/Dockerfile
+    container_name: barato-blazor
+    ports:
+      - "5200:80"
+    depends_on:
+      - barato-api
+    networks:
+      - barato-net
+
+volumes:
+  barato_sql_data:
+  barato_redis_data:
+  barato_uploads:
+
+networks:
+  barato-net:
+    driver: bridge

@@ -1,0 +1,92 @@
+@namespace BaratoInventory.Blazor.Components
+@using BaratoInventory.Core.DTOs
+
+@if (IsOpen && Product != null)
+{
+    <div class="modal-backdrop-custom" @onclick="HandleBackdropClick">
+        <div class="modal-dialog-custom modal-danger-dialog @(_isPulseAnimating ? "modal-static-pulse" : "")" @onclick:stopPropagation="true">
+            <div class="modal-header-custom">
+                <div class="modal-header-icon danger-icon">&#9888;</div>
+                <h3 class="modal-title-custom">
+                    Confirm Product Deletion
+                    <span class="hover-note-icon" data-tooltip="Soft deletion preserves database audit history while removing the item from active catalog queries and purging Redis." data-tooltip-pos="top">ⓘ</span>
+                </h3>
+                <button type="button" class="modal-close-btn" @onclick="HandleCancel" data-tooltip="Cancel and close dialog" data-tooltip-pos="left">&times;</button>
+            </div>
+
+            <div class="modal-body-custom">
+                <p>Are you sure you want to remove <strong>@Product.Name</strong> (ID #@Product.Id) from the catalog?</p>
+                <div class="modal-item-summary">
+                    <div><strong>Category:</strong> @Product.Category</div>
+                    <div><strong>Unit Price:</strong> ₱@Product.Price.ToString("N2")</div>
+                    <div><strong>Current Stock:</strong> @Product.Quantity units</div>
+                </div>
+                <p class="modal-warning-subtext">This action will soft-delete the record and evict all related cached product queries.</p>
+            </div>
+
+            <div class="modal-footer-custom">
+                <button type="button" class="btn btn-secondary" disabled="@IsSubmitting" @onclick="HandleCancel" data-tooltip="Keep this product in inventory" data-tooltip-pos="top">
+                    Cancel
+                </button>
+                <button type="button" class="btn btn-danger" disabled="@IsSubmitting" @onclick="HandleConfirm" data-tooltip="Confirm removal of this item" data-tooltip-pos="top">
+                    @if (IsSubmitting)
+                    {
+                        <span class="btn-spinner"></span>
+                        <span>Deleting...</span>
+                    }
+                    else
+                    {
+                        <span>Delete Product</span>
+                    }
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter]
+    public bool IsOpen { get; set; }
+
+    [Parameter]
+    public ProductDto? Product { get; set; }
+
+    [Parameter]
+    public bool IsSubmitting { get; set; }
+
+    [Parameter]
+    public EventCallback OnCancel { get; set; }
+
+    [Parameter]
+    public EventCallback<ProductDto> OnConfirm { get; set; }
+
+    private bool _isPulseAnimating;
+
+    private async Task HandleBackdropClick()
+    {
+        if (!_isPulseAnimating)
+        {
+            _isPulseAnimating = true;
+            StateHasChanged();
+            await Task.Delay(250);
+            _isPulseAnimating = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task HandleCancel()
+    {
+        if (!IsSubmitting)
+        {
+            await OnCancel.InvokeAsync();
+        }
+    }
+
+    private async Task HandleConfirm()
+    {
+        if (Product != null && !IsSubmitting)
+        {
+            await OnConfirm.InvokeAsync(Product);
+        }
+    }
+}
